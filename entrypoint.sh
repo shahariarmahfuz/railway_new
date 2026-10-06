@@ -3,23 +3,24 @@ set -e
 
 echo "Starting Tailscale in userspace networking mode..."
 
-# Railway-তে TUN ডিভাইস না থাকায় userspace-networking মোড বাধ্যতামূলক
+# Tailscale ব্যাকগ্রাউন্ডে রান
 tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
 
-# tailscaled সার্ভিস চালু হওয়া পর্যন্ত অপেক্ষা
-until tailscale status &>/dev/null; do
-  sleep 1
+# tailscaled সকেট রেডি হওয়া পর্যন্ত অপেক্ষা
+until [ -S /var/run/tailscale/tailscaled.sock ]; do
+  sleep 0.5
 done
 
-# Railway-এর Variables থেকে কী নিয়ে লগইন ও SSH চালু করা
+echo "Tailscale daemon is ready. Authenticating..."
+
+# Railway Variables থেকে টোকেন নিয়ে লগইন
 if [ -n "$TS_AUTHKEY" ]; then
-  echo "Authenticating Tailscale..."
   tailscale up --authkey="${TS_AUTHKEY}" --ssh --hostname="${TS_HOSTNAME:-railway-ubuntu}"
   echo "Tailscale connected successfully!"
 else
-  echo "ERROR: TS_AUTHKEY variable is missing!"
+  echo "ERROR: TS_AUTHKEY variable is missing in Railway!"
   exit 1
 fi
 
-# কন্টেইনার চালু রাখতে
+# কন্টেইনার যেন বন্ধ না হয়
 exec tail -f /dev/null
